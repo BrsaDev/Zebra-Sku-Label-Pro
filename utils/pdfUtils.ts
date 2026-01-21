@@ -21,7 +21,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 }
 
 export async function generateSKULabels(sku: string, barcode: string, count: number): Promise<void> {
-  // Page size for 2-up layout (80x25mm)
+  // Tamanho da página para 2 etiquetas lado a lado (80x25mm)
   const pageWidth = ZEBRA_LABEL_CONFIG.width * ZEBRA_LABEL_CONFIG.columns;
   const pageHeight = ZEBRA_LABEL_CONFIG.height;
   
@@ -31,34 +31,36 @@ export async function generateSKULabels(sku: string, barcode: string, count: num
     format: [pageWidth, pageHeight]
   });
 
-  // CRITICAL CHANGE: The QR Code now contains the BARCODE data, not the SKU.
-  const qrDataUrl = await QRCode.toDataURL(barcode, { errorCorrectionLevel: 'M', margin: 1 });
+  // QR Code com o Barcode original (não o SKU)
+  const qrDataUrl = await QRCode.toDataURL(barcode, { 
+    errorCorrectionLevel: 'M', 
+    margin: 1,
+    width: 200
+  });
 
   for (let i = 0; i < count; i++) {
     const col = i % 2;
-    
-    // Position within the 80mm wide page
     const xOffset = col * ZEBRA_LABEL_CONFIG.width;
     
-    // Draw QR Code centered in its 40x25 block
-    const qrSize = 16;
+    // QR Code centralizado e maior (18mm em uma etiqueta de 25mm de altura)
+    const qrSize = 18;
     const qrX = xOffset + (ZEBRA_LABEL_CONFIG.width - qrSize) / 2;
-    const qrY = 2; 
+    const qrY = 1.5; 
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-    // Draw SKU Text centered below QR (As per "Texto somente o SKU")
-    doc.setFontSize(7);
+    // SKU Texto centralizado na base
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     const text = sku;
     const textWidth = doc.getTextWidth(text);
     const textX = xOffset + (ZEBRA_LABEL_CONFIG.width - textWidth) / 2;
-    doc.text(text, textX, 22);
+    doc.text(text, textX, 22.5);
 
-    // Page logic for 2-up
+    // Lógica de página para 2 etiquetas por folha
     if ((col === 1 || i === count - 1) && i < count - 1) {
       doc.addPage();
     }
   }
 
-  doc.save(`etiquetas_${sku.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+  doc.save(`${sku}_${count}_etiquetas.pdf`);
 }
