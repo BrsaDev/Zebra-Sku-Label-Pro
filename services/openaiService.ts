@@ -2,7 +2,7 @@
 import { LabelData } from "../types";
 
 export async function extractWithOpenAI(pdfTextContext: string): Promise<LabelData[]> {
-  const apiKey = (process.env as any).OPENAI_API_KEY || process.env.API_KEY; // Fallback to main key if shared
+  const apiKey = process.env.OPENAI_API_KEY;
   
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
