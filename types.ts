@@ -1,4 +1,6 @@
 
+export type ProcessingEngine = 'gemini' | 'openai' | 'local';
+
 export interface LabelData {
   sku: string;
   barcode: string;

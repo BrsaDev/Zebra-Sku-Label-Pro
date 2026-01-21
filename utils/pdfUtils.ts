@@ -5,23 +5,29 @@ import { ZEBRA_LABEL_CONFIG } from '../types';
 
 declare const pdfjsLib: any;
 
+if (typeof window !== 'undefined' && 'pdfjsLib' in window) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
+
 export async function extractTextFromPDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
   let fullText = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const strings = content.items.map((item: any) => item.str);
+    const strings = content.items
+      .map((item: any) => item.str)
+      .filter((s: string) => s.trim().length > 0);
     fullText += strings.join(" ") + "\n";
   }
-
   return fullText;
 }
 
 export async function generateSKULabels(sku: string, barcode: string, count: number): Promise<void> {
-  // Tamanho da página para 2 etiquetas lado a lado (80x25mm)
+  // Configuração Zebra: 2 etiquetas lado a lado (40mm cada = 80mm total)
   const pageWidth = ZEBRA_LABEL_CONFIG.width * ZEBRA_LABEL_CONFIG.columns;
   const pageHeight = ZEBRA_LABEL_CONFIG.height;
   
@@ -31,36 +37,38 @@ export async function generateSKULabels(sku: string, barcode: string, count: num
     format: [pageWidth, pageHeight]
   });
 
-  // QR Code com o Barcode original (não o SKU)
+  // Gerar o QR Code com alta densidade e sem margens
   const qrDataUrl = await QRCode.toDataURL(barcode, { 
-    errorCorrectionLevel: 'M', 
-    margin: 1,
-    width: 200
+    errorCorrectionLevel: 'H', // Alta correção para etiquetas térmicas
+    margin: 0,
+    width: 400
   });
 
   for (let i = 0; i < count; i++) {
     const col = i % 2;
     const xOffset = col * ZEBRA_LABEL_CONFIG.width;
     
-    // QR Code centralizado e maior (18mm em uma etiqueta de 25mm de altura)
-    const qrSize = 18;
+    // QR Code maior e bem centralizado
+    const qrSize = 18.5; 
     const qrX = xOffset + (ZEBRA_LABEL_CONFIG.width - qrSize) / 2;
-    const qrY = 1.5; 
+    const qrY = 1.0; 
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-    // SKU Texto centralizado na base
-    doc.setFontSize(8);
+    // Texto: Apenas o SKU centralizado na base
+    doc.setFontSize(7.5);
     doc.setFont("helvetica", "bold");
-    const text = sku;
-    const textWidth = doc.getTextWidth(text);
+    const cleanSku = sku.trim().toUpperCase();
+    const textWidth = doc.getTextWidth(cleanSku);
     const textX = xOffset + (ZEBRA_LABEL_CONFIG.width - textWidth) / 2;
-    doc.text(text, textX, 22.5);
+    
+    // Posição vertical próxima ao rodapé (25mm total, texto em 23mm)
+    doc.text(cleanSku, textX, 23.5);
 
-    // Lógica de página para 2 etiquetas por folha
-    if ((col === 1 || i === count - 1) && i < count - 1) {
+    // Lógica de paginação para 2-UP
+    if (col === 1 && i < count - 1) {
       doc.addPage();
     }
   }
 
-  doc.save(`${sku}_${count}_etiquetas.pdf`);
+  doc.save(`ZEBRA_SKU_${sku}_${count}un.pdf`);
 }
