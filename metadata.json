@@ -1,0 +1,5 @@
+{
+  "name": "Zebra SKU Label Pro",
+  "description": "Uma ferramenta profissional para ler arquivos PDF com QR Codes, contabilizar SKUs automaticamente via Gemini AI e gerar novos arquivos de etiquetas no padrão Zebra (40x25mm, 2-up).",
+  "requestFramePermissions": []
+}
